@@ -29,6 +29,44 @@ void setBoardState(int i, int j, int state,int player){
 int getBoardState(int i, int j){
     return board[linear_conv(i,j)].state;
 }
+int getBoardPlayer(i,j){
+    return board[linear_conv(i,j)].player;
+}
+int * removePlayer(int player, int * choices){
+    *choices=0;
+    int * toReturn;
+    int localReturn[dim_board*dim_board*2];
+    for(int j=0;j<dim_board;j++){
+        for(int i=0;i<dim_board;i++){
+            if(getBoardState(i,j)!=0 && getBoardPlayer(i,j)==player){//TODO check if we remove pairs or only single cards
+                setBoardState(i,j,0,0);
+                localReturn[*choices]=i;
+                localReturn[*choices+1]=j;
+                *choices+=2;
+            }
+        }
+    }
+    if(*choices!=0){
+        toReturn=malloc(sizeof(int)*(*choices));
+        for(int i=0;i<*choices;i++)
+            toReturn[i]=localReturn[i];
+        *choices/=2;
+        return toReturn;
+    }
+    return NULL;
+}
+
+int * removeChoice(int player){
+    for(int j=0;j<dim_board;j++)
+        for(int i=0;i<dim_board;i++)
+            if(getBoardState(i,j)==1 && getBoardPlayer(i,j)==player){//TODO check if we remove pairs or only single cards
+                setBoardState(i,j,0,0);
+                int * toReturn=malloc(sizeof(int)*2);
+                toReturn[0]=i;
+                toReturn[1]=j;
+                return toReturn;
+            }
+}
 board_place * init_board(int dim){
   int count  = 0;
   int i, j;
@@ -126,7 +164,7 @@ play_response board_play(int x, int y,int playernumber){
         resp->play1[0]= play1[playernumber][0];
         resp->play1[1]= play1[playernumber][1];
         strcpy(resp->str_play1, get_board_place_str(x, y));
-        setBoardState(x,y,1,0);
+        setBoardState(x,y,1,playernumber);
     }
 
     else{
