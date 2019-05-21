@@ -22,8 +22,8 @@ void setBoardState(int i, int j, int state,int player){
         board[linear_conv(i,j)].state=0;
     }
     if(state==1 || state==2){
-        board[linear_conv(i,j)].player=state;
-        board[linear_conv(i,j)].state=player;
+        board[linear_conv(i,j)].state=state;
+        board[linear_conv(i,j)].player=player;
     }
 }
 int getBoardState(int i, int j){
@@ -74,88 +74,107 @@ board_place * init_board(int dim){
   }
 }
 
+void freePlayResponse(play_response pr){
+    free(pr);
+}
 void print_Board(){
+    //--->x
+    //|
+    //|
+    //Y
     printf("---------------------\n");
-    for(int i =0;i<dim_board;i++){//I e J transpostos para ser igual ao hud
+    for(int j =0;j<dim_board;j++){//I e J transpostos para ser igual ao hud
         printf("|");
-        for(int j=0;j<dim_board;j++){
-            printf("%c%c|",board[linear_conv(j,i)].v[0],board[linear_conv(j,i)].v[1]);//I e J transpostos para ser igual ao hud
+        for(int i=0;i<dim_board;i++){
+            printf("%c%c|",board[linear_conv(i,j)].v[0],board[linear_conv(i,j)].v[1]);//I e J transpostos para ser igual ao hud
         }
         printf("\n");
         printf("---------------------\n");
     }
 
     printf("VISIVEL\n\n---------------------\n");
-    for(int i =0;i<dim_board;i++){
+    for(int j =0;j<dim_board;j++){
         printf("|");
-        for(int j=0;j<dim_board;j++){ //I e J transpostos para ser igual ao hud
+        for(int i=0;i<dim_board;i++){ //I e J transpostos para ser igual ao hud
             if(getBoardState(i,j)==0)
                 printf("--|");
             if(getBoardState(i,j)==1)
                 printf("%c%c|",board[linear_conv(i,j)].v[0],board[linear_conv(i,j)].v[1]);
             if(getBoardState(i,j)==2)
-                printf("%c%c|",toupper(board[linear_conv(j,i)].v[0]),toupper(board[linear_conv(j,i)].v[1]));
+                printf("%c%c|",toupper(board[linear_conv(i,j)].v[0]),toupper(board[linear_conv(i,j)].v[1]));
         }
         printf("\n");
         printf("---------------------\n");
     }
 }
 play_response board_play(int x, int y,int playernumber){
-  play_response resp;
-  resp.code =10;
-  if(board[linear_conv(x,y)].v[3]!=0){  //TILE Filled or in use
+  play_response resp=malloc(sizeof(struct pr));
+  resp->code =10;
 
-
-  }
   if(strcmp(get_board_place_str(x, y), "")==0 || board[linear_conv(x,y)].state!=0
             //||(play1[playernumber][0]!=-1 && (play1[playernumber][0]==x && play1[playernumber][1]==y))
             ){
     printf("FILLED by someone else or you\n");
-    resp.code =0;
+    resp->code =0;
   }
   else{
     if(play1[playernumber][0]== -1){
         printf("FIRST Play");
-        resp.code =1;
+        resp->code =1;
         play1[playernumber][0]=x;
         play1[playernumber][1]=y;
-        resp.play1[0]= play1[playernumber][0];
-        resp.play1[1]= play1[playernumber][1];
-        strcpy(resp.str_play1, get_board_place_str(x, y));
+        resp->play1[0]= play1[playernumber][0];
+        resp->play1[1]= play1[playernumber][1];
+        strcpy(resp->str_play1, get_board_place_str(x, y));
         setBoardState(x,y,1,0);
-        //TODO set state to diff 0 and player to player
     }
 
     else{
           char * first_str = get_board_place_str(play1[playernumber][0], play1[playernumber][1]);
           char * secnd_str = get_board_place_str(x, y);
 
-          resp.play1[0]= play1[playernumber][0];
-          resp.play1[1]= play1[playernumber][1];
-          strcpy(resp.str_play1, first_str);
-          resp.play2[0]= x;
-          resp.play2[1]= y;
-          strcpy(resp.str_play2, secnd_str);
+          resp->play1[0]= play1[playernumber][0];
+          resp->play1[1]= play1[playernumber][1];
+          strcpy(resp->str_play1, first_str);
+          resp->play2[0]= x;
+          resp->play2[1]= y;
+          strcpy(resp->str_play2, secnd_str);
 
           if (strcmp(first_str, secnd_str) == 0){//CORRECT
             printf("CORRECT!!!\n");
             //strcpy(first_str, "");
             //strcpy(secnd_str, "");
-            //TODO set state to blocked and player to the player that solved it
+            setBoardState(resp->play1[0],resp->play1[1],2,playernumber);
             setBoardState(x,y,2,playernumber);
             n_corrects +=2;
             if (n_corrects == dim_board* dim_board)
-                resp.code = 3;
+                resp->code = 3;
             else
-              resp.code = 2;
+              resp->code = 2;
           }
           else{                             //Incorrect
             printf("INCORRECT");
+            setBoardState(resp->play1[0],resp->play1[1],0,0);
             setBoardState(x,y,0,0);
-            resp.code = -2;
+            resp->code = -2;
           }
           play1[playernumber][0]= -1;
       }
     }
   return resp;
+}
+
+void colourSet(colour c,int r, int g, int b){
+    if(c==NULL)
+        return;
+    c->r=r;
+    c->g=g;
+    c->b=b;
+}
+void colourCopy(colour dest,colour origin){
+    if(dest!=NULL && origin!=NULL){
+        dest->r=origin->r;
+        dest->g=origin->g;
+        dest->b=origin->b;
+    }
 }

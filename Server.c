@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <semaphore.h>
+#include <signal.h>
 
 #include "gameConnection.h"
 #include "board_library.h"
@@ -23,6 +24,7 @@ typedef struct BoardState {
 	int start;
 	int playerNumber;
 	int players[MAX_PLAYER];
+	colour colour_players[MAX_PLAYER];
 	char * str_players[MAX_PLAYER];
     sem_t sem_board;
     sem_t sem_server;
@@ -33,19 +35,24 @@ typedef struct ThrdIn {
     board_state  b;
 } * thread_init;
 
+int * fd_interruprt;
+void intHandler(int Sigint) {
+    close(*fd_interruprt);
+    exit(100);
+}
 int init_boardState(board_state * d ,int dim){
     (*d)=malloc(sizeof(struct BoardState));
     (*d)->playerNumber=0;
-    //(*d)->players= malloc(MAX_PLAYER*sizeof(int));
 
     (*d)->size=dim;
-    //(*d)->str_players = malloc(sizeof(char *) * MAX_PLAYER);
     printf("the size is %d",sizeof(char *) * MAX_PLAYER);
     for(int i=0; i<MAX_PLAYER;i++){
         (*d)->str_players[i]=malloc((sizeof(char)*MAX_CHAR));
         strcpy((*d)->str_players[i],"");
-        (*d)->players[i]=-1;
 
+        (*d)->colour_players[i]=malloc(sizeof(struct RGBCOLOR));
+        colourSet((*d)->colour_players[i],0,0,0);
+        (*d)->players[i]=-1;
     }
     init_board(dim);
     (*d)->start=1;
@@ -54,23 +61,70 @@ int init_boardState(board_state * d ,int dim){
         exit(-1);
     }
 }
+void sendToEveryone(board_state b,serverMessage message){
+    if(b==NULL)
+        return;
+    for(int i=0;i<MAX_PLAYER;i++){
+        if(strcmp(b->str_players[i],"")!=0){
+            //send(b->players[i],message,sizeof(struct Server_Message),0);
+            write(b->players[i],message,sizeof(struct Server_Message));
+        }
+    }
+}
+void firstSquareTurn(board_state b,int x,int y,colour playerColour){
+    if(b==NULL || playerColour==NULL)
+        return;
+    sem_wait(&b->sem_server);
+    serverMessage message= malloc(sizeof(struct Server_Message));
+    message->code=0;
+    message->x=x;
+    message->y=y;
+    colourCopy(&message->colour,playerColour);
+    strcpy(message->Card,get_board_place_str(x,y));
+    message->newValue=getBoardState(x,y);
+    sendToEveryone(b,message);
 
+    sem_post(&b->sem_server);
+    free(message);
+}
+void secondSquareUpdate(board_state b,int x1,int y1,int x2,int y2,colour playerColour){
+    if(b==NULL || playerColour==NULL)
+        return;
+    sem_wait(&b->sem_server);
+    serverMessage message= malloc(sizeof(struct Server_Message));
+    message->code=0;
+    message->x=x1;
+    message->y=y1;
+    colourCopy(&message->colour,playerColour);
+    strcpy(message->Card,get_board_place_str(x1,y1));
+    message->newValue=getBoardState(x1,y1);
+
+    sendToEveryone(b,message);//sent message for first square
+
+    message->x=x2;
+    message->y=y2;
+    sendToEveryone(b,message);
+    sem_post(&b->sem_server);
+    free(message);
+}
 int ver_win(board_state  b, char player) {
 	int  points[b->size];
 	for (int i = 0; i < b->size; i++)
 		for (int j = 0; j < b->size; j++) {
-			if (get_board_place_str(i,j)[2] == '\0');
+			if (get_board_place_str(i,j)[2] == '\0')
 				return -1;
 		}
 	return 1;
 }
 
-int mainServer() {
+int main() {
 	struct sockaddr_in server_addr;
     board_state b;
-	int msg_ret;
-	int players_fd[2];
 	pthread_t  threads[MAX_PLAYER];
+
+    struct sigaction act;
+    act.sa_handler = intHandler;
+    sigaction(SIGINT, &act, NULL);
 
     init_boardState(&b,BOARD_SIZE);
     printf("Printing Board\n");
@@ -93,11 +147,14 @@ int mainServer() {
 		exit(-1);
 	}
 	printf(" socket created and binded \n");
-	listen(sock_fd, 5);                         //Listen
+    fd_interruprt=malloc(sizeof(int));
+    *fd_interruprt=sock_fd;
+    int * clientSock = malloc(sizeof(int));
+	listen(sock_fd, 5);//Listen
+
 	while (1) {
 		printf("Waiting for players\n");
 
-		int * clientSock = malloc(sizeof(int));
 		*clientSock=accept(sock_fd, NULL, NULL);        //accept
 		printf("1 - client connected\n");
 		sem_wait(&b->sem_server);
@@ -107,8 +164,6 @@ int mainServer() {
                 threadInit->client=i;
                 threadInit->b=b;
                 int pthreaderr;
-                clientMessage  cl=malloc(sizeof(struct Client_Message));
-    //            int read_size = recv(*clientSock , cl , sizeof(struct Client_Message) , 0);
                 do{
                     pthreaderr=pthread_create( &threads[i] , NULL ,  connection_handler , (void*) threadInit);
                     if(pthreaderr<0)
@@ -122,23 +177,8 @@ int mainServer() {
             }
         }
         sem_post(&b->sem_server);
-
-            //  int player_2= accept(sock_fd, (struct sockaddr *) & client_addr, &size_addr);
-		//write(players_fd[0], &players[0], sizeof(players[0]));
-		//players_fd[1] = accept(sock_fd, NULL, NULL);
-		//printf("1 - client connected\n");
-		//write(players_fd[1], &players[1], sizeof(players[1]));
-/*
-		while (b->start) {
-			write(players_fd[0], &b, sizeof(b));
-			play_remote(&b, players[0], players_fd[0]);
-			write(players_fd[0], &b, sizeof(b));
-
-			write(players_fd[1], &b, sizeof(b));
-			play_remote(&b, players[1], players_fd[1]);
-			write(players_fd[1], &b, sizeof(b));
-		}*/
 	}
+	free(clientSock);
 	for(int i=0;i<MAX_PLAYER;i++){
 	    if(b->str_players!=NULL){
 	        close(b->players[i]);
@@ -146,9 +186,7 @@ int mainServer() {
 	}
 }
 
-void printCliMessage(clientMessage pMessage) {
-    printf("ID=%d\n,x=%d\ny=%d\nString=%s\n",pMessage->code,pMessage->x,pMessage->y,pMessage->str_play1);
-}
+
 
 
 void *connection_handler(void *socket_desc)
@@ -158,12 +196,15 @@ void *connection_handler(void *socket_desc)
     board_state b =  init->b;
     sem_wait(&b->sem_server);   //Server sem wait
     int playerNmbr=init->client;
-    int sock = b->players[playerNmbr];//*(b->players + init->client),playerNmbr=init->client;
+    int sock = b->players[playerNmbr];
+
+    colour playerColour=malloc(sizeof(struct RGBCOLOR));//Store colour in local variable to not use server semaphore
+    colourCopy(playerColour,b->colour_players[playerNmbr]);
+
     sem_post(&b->sem_server);   //Sem Post
     free(socket_desc);
 
     clientMessage climen=malloc(sizeof(struct Client_Message));
-    char *message ;
     int read_size=recv(sock , climen , sizeof(struct Client_Message) , 0);
     //Receive a message from client
     while( read_size> 0 )
@@ -173,13 +214,35 @@ void *connection_handler(void *socket_desc)
 
             switch (climen->code){
                 case 0:
-                    sem_wait(&b->sem_board);
-                    if(climen->x < 0 || climen->x >= BOARD_SIZE
-                        ||climen->y < 0 || climen->y >= BOARD_SIZE){
-                    board_play(climen->x,climen->y,playerNmbr);
+                    if(climen->x >= 0 && climen->x < BOARD_SIZE
+                        &&climen->y >= 0 && climen->y < BOARD_SIZE){
+                        sem_wait(&b->sem_board);
+                        play_response pr = board_play(climen->x,climen->y,playerNmbr);
 
+                        switch (pr->code){
+                            case 0://filled
+                                break;
+                            case 1://first play
+                                firstSquareTurn(b,climen->x,climen->y,playerColour);
+                                break;
+                            case 3:
+                                sem_wait(&b->sem_server);
+                                //TODO send message to everyone that the game is over
+                                sem_post(&b->sem_server);
+                                break;
+                            case 2://Case miss second and hit second call the same funcition
+                            case -2:
+                                secondSquareUpdate(b,pr->play1[0],pr->play1[1],pr->play2[0],pr->play2[1],playerColour);
+                                if(pr->code==-2){
+                                    sleep(2);//TODO Sleep
+                                    //TODO set sleep variable
+                                }
+                                break;
+                        }
+                        print_Board();
+                        sem_post(&b->sem_board);
+                        freePlayResponse(pr);
                     }
-                    sem_post(&b->sem_board);
                     break;
                 case 1:
                     sem_wait(&b->sem_server);
@@ -197,12 +260,11 @@ void *connection_handler(void *socket_desc)
         close(sock);
         //TODO FREE STRUCTURE of message and client
         sem_post(&b->sem_server);   //Server sem wait
-
     }
     else if(read_size == -1)
     {
         perror("recv failed");
     }
-
     return 0;
 }
+
