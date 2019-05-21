@@ -14,7 +14,9 @@
 
 typedef struct Server_Message{
     int code; // 0 - New card flipped
-            //1 - game end
+            //  1- card already flipped
+            //  2- Game not started yet
+            //  3 - game end
     char Card[3];
     int newValue;
     int x,y;//position

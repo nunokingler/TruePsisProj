@@ -29,7 +29,7 @@ void setBoardState(int i, int j, int state,int player){
 int getBoardState(int i, int j){
     return board[linear_conv(i,j)].state;
 }
-int getBoardPlayer(i,j){
+int getBoardPlayer(int i,int j){
     return board[linear_conv(i,j)].player;
 }
 int * removePlayer(int player, int * choices){
@@ -53,6 +53,8 @@ int * removePlayer(int player, int * choices){
         *choices/=2;
         return toReturn;
     }
+    play1[player][0]=-1;
+    play1[player][1]=-1;
     return NULL;
 }
 
@@ -64,6 +66,8 @@ int * removeChoice(int player){
                 int * toReturn=malloc(sizeof(int)*2);
                 toReturn[0]=i;
                 toReturn[1]=j;
+                play1[player][0]=-1;
+                play1[player][1]=-1;
                 return toReturn;
             }
 }
@@ -180,8 +184,6 @@ play_response board_play(int x, int y,int playernumber){
 
           if (strcmp(first_str, secnd_str) == 0){//CORRECT
             printf("CORRECT!!!\n");
-            //strcpy(first_str, "");
-            //strcpy(secnd_str, "");
             setBoardState(resp->play1[0],resp->play1[1],2,playernumber);
             setBoardState(x,y,2,playernumber);
             n_corrects +=2;

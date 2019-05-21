@@ -17,7 +17,6 @@
 
 #define BOARD_SIZE 4
 
-void *connection_handler(void *socket_desc);
 
 typedef struct BoardState {
 	int size;
@@ -30,10 +29,7 @@ typedef struct BoardState {
     sem_t sem_server;
 } * board_state;
 
-typedef struct ThrdIn {
-    int client;
-    board_state  b;
-} * thread_init;
+
 typedef struct Client {
     int cliNmbr,sock;
     colour cliColour;
@@ -43,7 +39,18 @@ typedef struct Client {
     int timeout;
 } * client;
 
+typedef struct ThrdIn {
+    int client;
+    board_state  b;
+} * thread_init;
+typedef struct TimerParam {
+    client cl;
+    board_state  b;
+} * timerThreadParam;
 
+
+void * connection_handler(void *socket_desc);
+void * clientTimer(void * param);
 
 int * fd_interruprt;
 void intHandler(int Sigint) {
@@ -181,6 +188,8 @@ int main() {
                 }while (pthreaderr<0);
                 b->playerNumber++;
                 b->players[i] = *clientSock;
+                //TODO if playerNumber==2 Start the freaking game
+                //TODO give colour to the player
                 strcpy(b->str_players[i] , "Filled");
                 printf("Added new player");
                 break;
@@ -208,16 +217,17 @@ void *connection_handler(void *socket_desc)
     sem_wait(&b->sem_server);   //Server sem wait
     cli->cliNmbr=init->client;
     cli->sock = b->players[cli->cliNmbr];
-    strcpy(    cli->cliName,b->str_players[cli->cliNmbr]);
-    colour playerColour=malloc(sizeof(struct RGBCOLOR));//Store colour in local variable to not use server semaphore
-    colourCopy(playerColour,b->colour_players[cli->cliNmbr]);
+    strcpy(cli->cliName,b->str_players[cli->cliNmbr]);
+    cli->cliColour=malloc(sizeof(struct RGBCOLOR));//Store colour in local variable to not use server semaphore
+    colourCopy(cli->cliColour,b->colour_players[cli->cliNmbr]);
     cli->state=0;
+    cli->timeout=0;
 
     sem_post(&b->sem_server);   //Sem Post
     free(socket_desc);
 /*
     struct timeval timeout;
-    timeout.tv_sec = 1;
+    timeout.tv_sec = 1000;
     timeout.tv_usec = 0;
 
     if (setsockopt (cli->sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
@@ -231,78 +241,114 @@ void *connection_handler(void *socket_desc)
     {
         if(read_size== sizeof(struct Client_Message)){
             //printCliMessage(climen);
-            switch (climen->code){
-                case 0:
-                    if(climen->x >= 0 && climen->x < BOARD_SIZE
-                        &&climen->y >= 0 && climen->y < BOARD_SIZE){
-                        sem_wait(&b->sem_board);
-                        play_response pr = board_play(climen->x,climen->y,cli->cliNmbr);
+            cli->timeout=0;
+            sem_wait(&b->sem_server);
+            int gameStart=b->start;
+            sem_post(&b->sem_server);
+            if(gameStart>2){
+                switch (climen->code){
+                    case 0:
+                        if(climen->x >= 0 && climen->x < BOARD_SIZE
+                            &&climen->y >= 0 && climen->y < BOARD_SIZE){
+                            sem_wait(&b->sem_board);
+                            play_response pr = board_play(climen->x,climen->y,cli->cliNmbr);
 
-                        switch (pr->code){
-                            case 0://filled
-                                printf("The square %d-%d is filled player %s,%d",climen->x,climen->y,cli->cliName,cli->cliNmbr);
-                                cli->state=1;
-                                break;
-                            case 1://first play
-                                sendOneSquareTurn(b, climen->x, climen->y, playerColour);
-                                break;
-                            case 3:
-                                sem_wait(&b->sem_server);
-                                //TODO send message to everyone that the game is over
-                                sem_post(&b->sem_server);
-                                break;
-                            case 2://Case miss second and hit second call the same funcition
-                            case -2:
-                                cli->state=0;
-                                secondSquareUpdate(b,pr->play1[0],pr->play1[1],pr->play2[0],pr->play2[1],playerColour);
-                                if(pr->code==-2){
-                                    sleep(2);//TODO Sleep
-                                    //TODO set sleep variable
-                                }
-                                break;
-                            default:break;
+                            switch (pr->code){
+                                case 0://filled
+                                    printf("The square %d-%d is filled player %s,%d",climen->x,climen->y,cli->cliName,cli->cliNmbr);
+                                    //squareIsFull(climen->x,climen->y);//TODO send square is full
+                                    break;
+                                case 1://first play
+                                    sendOneSquareTurn(b, climen->x, climen->y, cli->cliColour);
+                                    int pthreadRet;
+                                    cli->state=1;
+                                    pthread_t threadID;
+                                    timerThreadParam param = malloc(sizeof(struct TimerParam));
+                                    param->b=b;
+                                    param->cl=cli;
+                                    do{
+                                        pthreadRet=pthread_create( &threadID , NULL ,  &clientTimer , (void*) param);
+                                    }while(pthreadRet<0);
+                                    break;
+                                case 3:
+                                    sem_wait(&b->sem_server);
+                                    //TODO send message to everyone that the game is over
+                                    sem_post(&b->sem_server);
+                                    break;
+                                case 2://Case miss second and hit second call the same funcition
+                                case -2:
+                                    cli->state=0;
+                                    cli->timeout++;
+                                    secondSquareUpdate(b,pr->play1[0],pr->play1[1],pr->play2[0],pr->play2[1],cli->cliColour);
+                                    if(pr->code==-2){
+                                        sleep(2);//TODO ver se sleep da(deve dar)
+                                    }
+                                    break;
+                                default:break;
+                            }
+                            print_Board();
+                            sem_post(&b->sem_board);
+                            freePlayResponse(pr);
                         }
-                        print_Board();
-                        sem_post(&b->sem_board);
-                        freePlayResponse(pr);
-                    }
-                    break;
-                case 1:
-                    sem_wait(&b->sem_server);
-                    strcpy(b->str_players[cli->cliNmbr],climen->str_play1);
-                    sem_post(&b->sem_server);
-                    break;
-                default:break;
+                        break;
+                    case 1:
+                        sem_wait(&b->sem_server);
+                        strcpy(b->str_players[cli->cliNmbr],climen->str_play1);
+                        sem_post(&b->sem_server);
+                        break;
+                    default:break;
+                }
+            }
+            else{
+                //TODO game not started yet, we got a speedy gonzales over here
             }
         }
         read_size=recv(cli->sock, climen , sizeof(struct Client_Message) , 0);
     }
-    if(read_size <= 0)
+    if(read_size <=0)
     {
         sem_wait(&b->sem_board);   //Server sem wait
         if(read_size==0)
-            printf("Client %s disconnected",b->str_players[cli->cliNmbr]);
+            printf("Client %s disconnected because of timeout",b->str_players[cli->cliNmbr]);
         if(read_size==-1)
             perror("recv failed");
         close(cli->sock);
-        //TODO FREE STRUCTURE of message and client
 
         sem_wait(&b->sem_server);
         strcpy(b->str_players[cli->cliNmbr],"");
         b->players[cli->cliNmbr]=0;
         b->playerNumber--;
+        //TODO if (b->playerNumber<2) STOP the freaking game
         sem_post(&b->sem_server);
         int removalNumber=0;
 
         int * toRemove=removePlayer(cli->cliNmbr,&removalNumber);   //remove player taken cards (reflip them over)
+        free(cli);
         if(toRemove!=NULL){
             for(int i=0;i<removalNumber;i++)
-                sendOneSquareTurn(b, toRemove[i * 2], toRemove[i * 2 + 1], playerColour);
+                sendOneSquareTurn(b, toRemove[i * 2], toRemove[i * 2 + 1], cli->cliColour);
         }
         print_Board();
         free(toRemove);
         sem_post(&b->sem_board);   //Server sem wait
     }
     return 0;
+}
+void * clientTimer(void *param){
+    if(param==NULL)
+        return NULL;
+    timerThreadParam tim = (timerThreadParam) param;
+    client cl=tim->cl;
+    board_state b= tim->b;
+    int oldTimeout= ((client)cl)->timeout,* pointer;
+    sleep(5);
+    if(((client)cl)->timeout==oldTimeout && ((client)cl)->state==1) {
+        pointer=removeChoice(((client)cl)->cliNmbr);
+        if(pointer!=NULL){
+            sendOneSquareTurn(b, pointer[0],pointer[1],((client)cl)->cliColour);
+            free(pointer);
+        }
+    }
+    free(param);
 }
 
