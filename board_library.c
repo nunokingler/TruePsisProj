@@ -36,7 +36,7 @@ board_place * init_board(int dim){
 
   dim_board= dim;
   n_corrects = 0;
-  for(int i=0;i<MAX_PLAYER;i++)
+  for(i=0;i<MAX_PLAYER;i++)
     play1[i][0]= -1;
   board = malloc(sizeof(board_place)* dim *dim);
 

@@ -45,7 +45,6 @@ int init_boardState(board_state * d ,int dim){
     (*d)->playerNumber=0;
 
     (*d)->size=dim;
-    printf("the size is %d",sizeof(char *) * MAX_PLAYER);
     for(int i=0; i<MAX_PLAYER;i++){
         (*d)->str_players[i]=malloc((sizeof(char)*MAX_CHAR));
         strcpy((*d)->str_players[i],"");
@@ -238,6 +237,7 @@ void *connection_handler(void *socket_desc)
                                     //TODO set sleep variable
                                 }
                                 break;
+                            default:break;
                         }
                         print_Board();
                         sem_post(&b->sem_board);
@@ -249,6 +249,7 @@ void *connection_handler(void *socket_desc)
                     strcpy(b->str_players[playerNmbr],climen->str_play1);
                     sem_post(&b->sem_server);
                     break;
+                default:break;
             }
         }
         read_size=recv(sock , climen , sizeof(struct Client_Message) , 0);
