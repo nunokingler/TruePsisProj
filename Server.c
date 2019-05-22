@@ -67,7 +67,7 @@ int init_boardState(board_state * d ,int dim){
         strcpy((*d)->str_players[i],"");
 
         (*d)->colour_players[i]=malloc(sizeof(struct RGBCOLOR));
-        colourSet((*d)->colour_players[i],0,0,0);
+        colourSet((*d)->colour_players[i],0,255,0);//TODO change the default colour to something else
         (*d)->players[i]=-1;
     }
     init_board(dim);
@@ -133,7 +133,7 @@ void * gameStartTimer(void * board){
         return NULL;
 
     board_state b= (board_state) board;
-    sleep(30);//TODO problem, if players play again during this timeout and finish the game the third game will restart Faster
+    sleep(15);//TODO problem, if players play again during this timeout and finish the game the third game will restart Faster
 
     sem_wait(&b->sem_board);
     sem_wait(&b->sem_server);
@@ -141,6 +141,8 @@ void * gameStartTimer(void * board){
         init_board(b->size);
         b->start = 1;
         sendGameState(b,3);
+        print_Board();
+        printf("Let a new game begin!\n");
     }
     sem_post(&b->sem_board);
     sem_post(&b->sem_server);
@@ -153,9 +155,16 @@ void sendOneSquareTurn(board_state b, int x, int y, colour playerColour){
     message->code=0;
     message->x=x;
     message->y=y;
-    colourCopy(&message->colour,playerColour);
-    strcpy(message->Card,get_board_place_str(x,y));
     message->newValue=getBoardState(x,y);
+    if(message->newValue!=0){
+        colourCopy(&message->colour,playerColour);
+        strcpy(message->Card,get_board_place_str(x,y));
+    }
+    else{
+        colourSet(&message->colour,255,255,255);
+        strcpy(message->Card,"");
+    }
+
     sendToEveryone(b,message);
 
     sem_post(&b->sem_server);
@@ -169,15 +178,29 @@ void secondSquareUpdate(board_state b,int x1,int y1,int x2,int y2,colour playerC
     message->code=0;
     message->x=x1;
     message->y=y1;
-    colourCopy(&message->colour,playerColour);
-    strcpy(message->Card,get_board_place_str(x1,y1));
     message->newValue=getBoardState(x1,y1);
+    if(message->newValue!=0){
+        colourCopy(&message->colour,playerColour);
+        strcpy(message->Card,get_board_place_str(x1,y1));
+    }
+    else{
+        colourSet(&message->colour,255,255,255);
+        strcpy(message->Card,"");
+    }
 
     sendToEveryone(b,message);//sent message for first square
 
     message->x=x2;
     message->y=y2;
-    strcpy(message->Card,get_board_place_str(x2,y2));
+    message->newValue=getBoardState(x2,y2);
+    if(message->newValue!=0){
+        colourCopy(&message->colour,playerColour);
+        strcpy(message->Card,get_board_place_str(x2,y2));
+    }
+    else{
+        colourSet(&message->colour,255,255,255);
+        strcpy(message->Card,"");
+    }
     message->newValue=getBoardState(x2,y2);
     sendToEveryone(b,message);
     sem_post(&b->sem_server);
@@ -203,9 +226,6 @@ int main() {
     sigaction(SIGINT, &act, NULL);
 
     init_boardState(&b,BOARD_SIZE);
-    printf("Printing Board\n");
-    print_Board();
-    printf("Printed Board\n");
 
 
 	int sock_fd = socket(AF_INET, SOCK_STREAM, 0);//creation
@@ -224,6 +244,8 @@ int main() {
 	}
 
 	printf(" socket created and binded \n");
+    print_Board();
+
     fd_interruprt=malloc(sizeof(int));
     *fd_interruprt=sock_fd;
     int * clientSock = malloc(sizeof(int));
@@ -233,10 +255,10 @@ int main() {
 		printf("Waiting for players\n");
 
 		*clientSock=accept(sock_fd, NULL, NULL);        //accept
-		printf("1 - client connected\n");
 		sem_wait(&b->sem_server);
         for(int i=0;i<MAX_PLAYER;i++){
             if(strcmp(b->str_players[i],"")==0){
+                printf("%d - client connected\n",i);
                 thread_init threadInit= malloc(sizeof(struct ThrdIn));
                 threadInit->client=i;
                 threadInit->b=b;
@@ -250,7 +272,6 @@ int main() {
                 b->players[i] = *clientSock;
                 //TODO give colour to the player
                 strcpy(b->str_players[i] , "Filled");
-                printf("Added new player");
                 if(b->playerNumber==2) {
                     b->start = 1;
                     sendGameState(b,3);
@@ -262,7 +283,7 @@ int main() {
 	}
 	free(clientSock);
 	for(int i=0;i<MAX_PLAYER;i++){
-	    if(b->str_players!=NULL){
+	    if(strcmp(b->str_players[i],"")){
 	        close(b->players[i]);
 	    }
 	}
@@ -336,23 +357,27 @@ void *connection_handler(void *socket_desc)
                                     break;
                                 case 3:
                                 case 2://Case miss second and hit second call the same funcition
+
+                                    cli->state=0;
+                                    secondSquareUpdate(b,pr->play1[0],pr->play1[1],pr->play2[0],pr->play2[1],cli->cliColour);
+
+                                    if(pr->code==3)
+                                        setNewGameStart(b);
+                                    break;
                                 case -2:
                                     cli->state=0;
-                                    cli->timeout++;
-                                    secondSquareUpdate(b,pr->play1[0],pr->play1[1],pr->play2[0],pr->play2[1],cli->cliColour);
-                                    if(pr->code==-2){
-                                        wrong_choice=1;
-                                    }
-                                    else
-                                        if(pr->code==3)
-                                            setNewGameStart(b);
+                                    colour to_send= malloc(sizeof(struct RGBCOLOR));
+                                    colourSet(to_send,255,0,0);
+                                    secondSquareUpdate(b,pr->play1[0],pr->play1[1],pr->play2[0],pr->play2[1],to_send);
+                                    free(to_send);
+                                    wrong_choice=1;
                                     break;
                                 default:break;
                             }
                             print_Board();
                             sem_post(&b->sem_board);
                             if(wrong_choice){
-                                sleep(2);
+                                sleep(2);           //TODO retirar este sleep
                                 wrong_choice=0;
                                 sem_wait(&b->sem_board);
 
@@ -364,7 +389,7 @@ void *connection_handler(void *socket_desc)
                             freePlayResponse(pr);
                         }
                         break;
-                    case 1:
+                    case 1://TODO check if the string does not end first
                         sem_wait(&b->sem_server);
                         strcpy(b->str_players[cli->cliNmbr],climen->str_play1);
                         sem_post(&b->sem_server);
@@ -391,8 +416,10 @@ void *connection_handler(void *socket_desc)
         strcpy(b->str_players[cli->cliNmbr],"");
         b->players[cli->cliNmbr]=0;
         b->playerNumber--;
-        if (b->playerNumber<2)
+        if (b->playerNumber<2){
             b->start=0;
+            sendGameState(b,5);
+        }
         sem_post(&b->sem_server);
         int removalNumber=0;
 
@@ -421,6 +448,7 @@ void * clientTimer(void *param){
         if(pointer!=NULL){
             sendOneSquareTurn(b, pointer[0],pointer[1],((client)cl)->cliColour);
             free(pointer);
+            print_Board();
         }
     }
     free(param);

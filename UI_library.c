@@ -8,8 +8,9 @@ int n_ronw_cols;
 		int col_width;
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
-
-
+void refresh_card(){
+    SDL_RenderPresent(renderer);
+}
 void write_card(int  board_x, int board_y, char * text, int r, int g, int b){
 	SDL_Rect rect;
 
@@ -32,7 +33,7 @@ void write_card(int  board_x, int board_y, char * text, int r, int g, int b){
 
 
 		SDL_RenderCopy(renderer, Background_Tx, NULL, &rect);
-SDL_RenderPresent(renderer);
+    SDL_RenderPresent(renderer);
 
 
 }

@@ -11,3 +11,17 @@ void printServerMessage(serverMessage pMessage){
             ,pMessage->code,pMessage->Card,pMessage->newValue,pMessage->winner,pMessage->x,pMessage->y
             ,pMessage->colour.r,pMessage->colour.g,pMessage->colour.b);
 }
+void colourSet(colour c,int r, int g, int b){
+    if(c==NULL)
+        return;
+    c->r=r;
+    c->g=g;
+    c->b=b;
+}
+void colourCopy(colour dest,colour origin){
+    if(dest!=NULL && origin!=NULL){
+        dest->r=origin->r;
+        dest->g=origin->g;
+        dest->b=origin->b;
+    }
+}

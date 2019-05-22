@@ -44,9 +44,6 @@ int main(int argc, char *argv[])
     serv_addr.sin_port = htons(PORT);
     if (connect(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr)) < 0) 
         error("ERROR connecting");
-    //printf("Please enter the message: ");
-    //bzero(buffer,256);
-    //fgets(buffer,255,stdin);
     int x,y;
     if(fork()==0){
         while(n>0){

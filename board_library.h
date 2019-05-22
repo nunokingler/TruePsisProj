@@ -9,9 +9,7 @@ typedef struct Board_Place{
   int player;
 } board_place;
 
-typedef struct RGBCOLOR {
-    int r,g,b;
-} * colour;
+
 typedef struct pr{
   int code; // 0 - filled
             // 1 - 1st play
@@ -23,8 +21,6 @@ typedef struct pr{
   char str_play1[3], str_play2[3];
 }* play_response;
 
-void colourCopy(colour dest,colour origin);
-void colourSet(colour c,int r, int g, int b);
 int * removePlayer(int player,int * Choices);//MUST CALL FREE
 int * removeChoice(int player);//MUST CALL FREE
 void unlockSquare(int i1,int j1,int i2,int j2);

@@ -5,13 +5,15 @@
 #ifndef TESTEC_GAMECONNECTION_H
 #define TESTEC_GAMECONNECTION_H
 
-#include "board_library.h"
 
-#define BOARD_SIZE 2
+#define BOARD_SIZE 8
 #define  MAX_PLAYER 10
 #define  MAX_CHAR 20
-#define PORT 12345
+#define PORT 12346
 
+typedef struct RGBCOLOR {
+    int r,g,b;
+} * colour;
 
 typedef struct Server_Message{
     int code; // 0 - New card flipped
@@ -19,6 +21,7 @@ typedef struct Server_Message{
             //  2- Game not started yet
             //  3 - game Start
             //  4 - game end
+            // 5 - game stop
     char Card[3];
     int newValue;
     int x,y;//position
@@ -36,5 +39,10 @@ typedef struct Client_Message{
 void printCliMessage(clientMessage pMessage);
 
 void printServerMessage(serverMessage pMessage);
+
+
+void colourCopy(colour dest,colour origin);
+
+void colourSet(colour c,int r, int g, int b);
 
 #endif //TESTEC_GAMECONNECTION_H

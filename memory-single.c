@@ -4,7 +4,7 @@
 #include "board_library.h"
 #include "UI_library.h"
 
-int mainss(){
+int main(){
 
 	SDL_Event event;
 	int done = 0;
