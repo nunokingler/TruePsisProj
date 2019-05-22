@@ -15,14 +15,13 @@
 
 //#include "galo-config.h"
 
-#define BOARD_SIZE 4
 
 
 typedef struct BoardState {
 	int size;
 	int start;
 	int playerNumber;
-	int players[MAX_PLAYER];
+	int players[MAX_PLAYER];//TODO investigate into making these client structures
 	colour colour_players[MAX_PLAYER];
 	char * str_players[MAX_PLAYER];
     sem_t sem_board;
@@ -51,6 +50,7 @@ typedef struct TimerParam {
 
 void * connection_handler(void *socket_desc);
 void * clientTimer(void * param);
+void * gameStartTimer(void * board);
 
 int * fd_interruprt;
 void intHandler(int Sigint) {
@@ -77,6 +77,17 @@ int init_boardState(board_state * d ,int dim){
         exit(-1);
     }
 }
+void sendErrorCode(client cli,int code){
+    serverMessage message= malloc(sizeof(struct Server_Message));
+    message->code=code;
+    message->x=0;
+    message->y=0;
+    colourCopy(&message->colour,cli->cliColour);
+    strcpy(message->Card,"");
+    message->newValue = -1;
+    write(cli->sock,message,sizeof(struct Server_Message));
+    free(message);
+}
 void sendToEveryone(board_state b,serverMessage message){
     if(b==NULL)
         return;
@@ -86,6 +97,53 @@ void sendToEveryone(board_state b,serverMessage message){
             write(b->players[i],message,sizeof(struct Server_Message));
         }
     }
+}
+void sendGameState(board_state b,int state){//MAKE SURE SERVER SEM IS CLOSED WHEN USING THIS ONE
+    if(b==NULL)
+        return;
+    serverMessage message= malloc(sizeof(struct Server_Message));
+    message->code=state;//3= start, 4= win
+    message->x=-1;
+    message->y=-1;
+    message->colour.r=0;
+    message->colour.g=0;
+    message->colour.b=0;
+    strcpy(message->Card,"");//TODO get winner and send it on this string
+    message->newValue=-1;
+    sendToEveryone(b,message);
+    free(message);
+}
+
+void setNewGameStart(board_state b){
+    pthread_t thred;
+    int pthreaderr;
+    sem_wait(&b->sem_server);
+    sendGameState(b,4);
+    b->start=0;
+    sem_post(&b->sem_server);
+    do{
+        pthreaderr=pthread_create( &thred , NULL ,  gameStartTimer , (void*) b);
+        if(pthreaderr<0)
+            perror("could not create thread");
+    }while (pthreaderr<0);
+
+}
+void * gameStartTimer(void * board){
+    if(board==NULL)
+        return NULL;
+
+    board_state b= (board_state) board;
+    sleep(30);//TODO problem, if players play again during this timeout and finish the game the third game will restart Faster
+
+    sem_wait(&b->sem_board);
+    sem_wait(&b->sem_server);
+    if(b->start==0) {
+        init_board(b->size);
+        b->start = 1;
+        sendGameState(b,3);
+    }
+    sem_post(&b->sem_board);
+    sem_post(&b->sem_server);
 }
 void sendOneSquareTurn(board_state b, int x, int y, colour playerColour){
     if(b==NULL || playerColour==NULL)
@@ -188,10 +246,13 @@ int main() {
                 }while (pthreaderr<0);
                 b->playerNumber++;
                 b->players[i] = *clientSock;
-                //TODO if playerNumber==2 Start the freaking game
                 //TODO give colour to the player
                 strcpy(b->str_players[i] , "Filled");
                 printf("Added new player");
+                if(b->playerNumber==2) {
+                    b->start = 1;
+                    sendGameState(b,3);
+                }
                 break;
             }
         }
@@ -245,7 +306,7 @@ void *connection_handler(void *socket_desc)
             sem_wait(&b->sem_server);
             int gameStart=b->start;
             sem_post(&b->sem_server);
-            if(gameStart>2){
+            if(gameStart>0){
                 switch (climen->code){
                     case 0:
                         if(climen->x >= 0 && climen->x < BOARD_SIZE
@@ -256,7 +317,7 @@ void *connection_handler(void *socket_desc)
                             switch (pr->code){
                                 case 0://filled
                                     printf("The square %d-%d is filled player %s,%d",climen->x,climen->y,cli->cliName,cli->cliNmbr);
-                                    //squareIsFull(climen->x,climen->y);//TODO send square is full
+                                    sendErrorCode(cli,1);
                                     break;
                                 case 1://first play
                                     sendOneSquareTurn(b, climen->x, climen->y, cli->cliColour);
@@ -271,10 +332,6 @@ void *connection_handler(void *socket_desc)
                                     }while(pthreadRet<0);
                                     break;
                                 case 3:
-                                    sem_wait(&b->sem_server);
-                                    //TODO send message to everyone that the game is over
-                                    sem_post(&b->sem_server);
-                                    break;
                                 case 2://Case miss second and hit second call the same funcition
                                 case -2:
                                     cli->state=0;
@@ -283,6 +340,9 @@ void *connection_handler(void *socket_desc)
                                     if(pr->code==-2){
                                         sleep(2);//TODO ver se sleep da(deve dar)
                                     }
+                                    else
+                                        if(pr->code==3)
+                                            setNewGameStart(b);
                                     break;
                                 default:break;
                             }
@@ -300,7 +360,7 @@ void *connection_handler(void *socket_desc)
                 }
             }
             else{
-                //TODO game not started yet, we got a speedy gonzales over here
+                sendErrorCode(cli,2);
             }
         }
         read_size=recv(cli->sock, climen , sizeof(struct Client_Message) , 0);
@@ -318,7 +378,8 @@ void *connection_handler(void *socket_desc)
         strcpy(b->str_players[cli->cliNmbr],"");
         b->players[cli->cliNmbr]=0;
         b->playerNumber--;
-        //TODO if (b->playerNumber<2) STOP the freaking game
+        if (b->playerNumber<2)
+            b->start=0;
         sem_post(&b->sem_server);
         int removalNumber=0;
 

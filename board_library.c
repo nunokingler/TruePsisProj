@@ -55,13 +55,17 @@ int * removePlayer(int player, int * choices){
     }
     play1[player][0]=-1;
     play1[player][1]=-1;
+    if(*choices%2==0)
+        n_corrects-=*choices;
+    else
+        n_corrects-=*choices+1;
     return NULL;
 }
 
 int * removeChoice(int player){
     for(int j=0;j<dim_board;j++)
         for(int i=0;i<dim_board;i++)
-            if(getBoardState(i,j)==1 && getBoardPlayer(i,j)==player){//TODO check if we remove pairs or only single cards
+            if(getBoardState(i,j)==1 && getBoardPlayer(i,j)==player){
                 setBoardState(i,j,0,0);
                 int * toReturn=malloc(sizeof(int)*2);
                 toReturn[0]=i;
@@ -70,6 +74,7 @@ int * removeChoice(int player){
                 play1[player][1]=-1;
                 return toReturn;
             }
+    return NULL;
 }
 board_place * init_board(int dim){
   int count  = 0;
@@ -187,7 +192,7 @@ play_response board_play(int x, int y,int playernumber){
             setBoardState(resp->play1[0],resp->play1[1],2,playernumber);
             setBoardState(x,y,2,playernumber);
             n_corrects +=2;
-            if (n_corrects == dim_board* dim_board)
+            if (n_corrects == dim_board* dim_board)//TODO aparently this never triggers
                 resp->code = 3;
             else
               resp->code = 2;
