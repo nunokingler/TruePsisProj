@@ -71,7 +71,7 @@ int init_boardState(board_state * d ,int dim){
         (*d)->players[i]=-1;
     }
     init_board(dim);
-    (*d)->start=1;
+    (*d)->start=0;
     if (sem_init(&((*d)->sem_server), 0, 1) == -1 || sem_init(&((*d)->sem_board), 0, 1) == -1){
         perror("sem_init error");
         exit(-1);
@@ -177,6 +177,8 @@ void secondSquareUpdate(board_state b,int x1,int y1,int x2,int y2,colour playerC
 
     message->x=x2;
     message->y=y2;
+    strcpy(message->Card,get_board_place_str(x2,y2));
+    message->newValue=getBoardState(x2,y2);
     sendToEveryone(b,message);
     sem_post(&b->sem_server);
     free(message);
@@ -297,6 +299,7 @@ void *connection_handler(void *socket_desc)
 
     clientMessage climen=malloc(sizeof(struct Client_Message));
     int read_size=recv(cli->sock , climen , sizeof(struct Client_Message) , 0);
+    int wrong_choice=0;
     //Receive a message from client
     while( read_size> 0 )
     {
@@ -306,7 +309,7 @@ void *connection_handler(void *socket_desc)
             sem_wait(&b->sem_server);
             int gameStart=b->start;
             sem_post(&b->sem_server);
-            if(gameStart>0){
+            if(gameStart > 0){
                 switch (climen->code){
                     case 0:
                         if(climen->x >= 0 && climen->x < BOARD_SIZE
@@ -338,7 +341,7 @@ void *connection_handler(void *socket_desc)
                                     cli->timeout++;
                                     secondSquareUpdate(b,pr->play1[0],pr->play1[1],pr->play2[0],pr->play2[1],cli->cliColour);
                                     if(pr->code==-2){
-                                        sleep(2);//TODO ver se sleep da(deve dar)
+                                        wrong_choice=1;
                                     }
                                     else
                                         if(pr->code==3)
@@ -348,6 +351,16 @@ void *connection_handler(void *socket_desc)
                             }
                             print_Board();
                             sem_post(&b->sem_board);
+                            if(wrong_choice){
+                                sleep(2);
+                                wrong_choice=0;
+                                sem_wait(&b->sem_board);
+
+                                unlockSquare(pr->play1[0],pr->play1[1],pr->play2[0],pr->play2[1]);
+                                secondSquareUpdate(b,pr->play1[0],pr->play1[1],pr->play2[0],pr->play2[1],cli->cliColour);
+
+                                sem_post(&b->sem_board);
+                            }
                             freePlayResponse(pr);
                         }
                         break;

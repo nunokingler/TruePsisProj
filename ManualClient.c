@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
         int read_size=recv(sockfd , serverMen , sizeof(struct Server_Message) , 0);
         while(read_size>0){
             if(read_size== sizeof(struct Server_Message)){
-                printf("New Message - ");
+                printf("\nNew Message - ");
                 printServerMessage(serverMen);
                 read_size=recv(sockfd , serverMen, sizeof(struct Server_Message) , 0);
             }

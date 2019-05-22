@@ -27,6 +27,7 @@ void colourCopy(colour dest,colour origin);
 void colourSet(colour c,int r, int g, int b);
 int * removePlayer(int player,int * Choices);//MUST CALL FREE
 int * removeChoice(int player);//MUST CALL FREE
+void unlockSquare(int i1,int j1,int i2,int j2);
 char * get_board_place_str(int i, int j);
 board_place * init_board(int dim);
 void print_Board();

@@ -7,7 +7,8 @@
 
 int dim_board;
 board_place * board;
-int play1[MAX_PLAYER][2];
+int play1[MAX_PLAYER][2];//TODO check into making this a structure so that a server can run more than 1 game
+int lock[MAX_PLAYER];
 int n_corrects;
 
 int linear_conv(int i, int j){
@@ -21,7 +22,7 @@ void setBoardState(int i, int j, int state,int player){
         board[linear_conv(i,j)].player=0;
         board[linear_conv(i,j)].state=0;
     }
-    if(state==1 || state==2){
+    if(state==1 || state==2 || state == 3){
         board[linear_conv(i,j)].state=state;
         board[linear_conv(i,j)].player=player;
     }
@@ -76,6 +77,19 @@ int * removeChoice(int player){
             }
     return NULL;
 }
+void unlockSquare(int i1,int j1,int i2,int j2){
+    int cmp=strcmp(get_board_place_str(i1,j1),get_board_place_str(i2,j2));
+    int bs1= getBoardState(i1,j1);
+    int bs2= getBoardState(i2,j2);
+    if(getBoardPlayer(i1,j1)==getBoardPlayer(i2,j2)&&
+        getBoardState(i1,j1)==getBoardState(i2,j2) && getBoardState(i1,j1)==3){
+        play1[getBoardPlayer(i1,j1)][0]=-1;
+        play1[getBoardPlayer(i1,j1)][1]=-1;
+        lock[getBoardPlayer(i1,j1)]=0;
+        setBoardState(i1,j1,0,0);
+        setBoardState(i2,j2,0,0);
+    }
+}
 board_place * init_board(int dim){
   int count  = 0;
   int i, j;
@@ -83,8 +97,10 @@ board_place * init_board(int dim){
 
   dim_board= dim;
   n_corrects = 0;
-  for(i=0;i<MAX_PLAYER;i++)
+  for(i=0;i<MAX_PLAYER;i++){
     play1[i][0]= -1;
+    lock[i]=0;
+  }
   board = malloc(sizeof(board_place)* dim *dim);
 
   for( i=0; i < (dim_board*dim_board); i++){
@@ -158,10 +174,10 @@ play_response board_play(int x, int y,int playernumber){
   play_response resp=malloc(sizeof(struct pr));
   resp->code =10;
 
-  if(strcmp(get_board_place_str(x, y), "")==0 || board[linear_conv(x,y)].state!=0
-            //||(play1[playernumber][0]!=-1 && (play1[playernumber][0]==x && play1[playernumber][1]==y))
+  if(strcmp(get_board_place_str(x, y), "")==0 || getBoardState(x,y)!=0
+            || lock[playernumber]==1
             ){
-    printf("FILLED by someone else or you\n");
+    printf("FILLED by someone else or your locked\n");
     resp->code =0;
   }
   else{
@@ -192,15 +208,16 @@ play_response board_play(int x, int y,int playernumber){
             setBoardState(resp->play1[0],resp->play1[1],2,playernumber);
             setBoardState(x,y,2,playernumber);
             n_corrects +=2;
-            if (n_corrects == dim_board* dim_board)//TODO aparently this never triggers
+            if (n_corrects == dim_board* dim_board)
                 resp->code = 3;
             else
               resp->code = 2;
           }
           else{                             //Incorrect
             printf("INCORRECT");
-            setBoardState(resp->play1[0],resp->play1[1],0,0);
-            setBoardState(x,y,0,0);
+            setBoardState(resp->play1[0],resp->play1[1],3,playernumber);
+            setBoardState(x,y,3,playernumber);
+            lock[playernumber]=1;
             resp->code = -2;
           }
           play1[playernumber][0]= -1;
