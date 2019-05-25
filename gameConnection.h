@@ -7,7 +7,6 @@
 
 
 #define BOARD_SIZE 8
-#define  MAX_PLAYER 10
 #define  MAX_CHAR 20
 #define PORT 12346
 

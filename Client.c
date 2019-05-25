@@ -32,7 +32,11 @@ void paintAllCards(int r,int g,int b,int size){
             paint_card(i,j,r,g,b);
 }
 int main(int argc, char *argv[]){
-
+    if (argc < 3) {//2
+        fprintf(stderr,"usage %s hostname port\n", argv[0]);
+        exit(0);
+    }
+    //INIT SDL
     SDL_Event event;
     int done = 0;
 
@@ -44,16 +48,14 @@ int main(int argc, char *argv[]){
         printf("TTF_Init: %s\n", TTF_GetError());
         exit(2);
     }
+    //Init sock
     int sockfd, portno, n=1;
 
     struct sockaddr_in serv_addr;
     struct hostent *server;
 
     char buffer[256];
-    if (argc < 2) {//2
-        fprintf(stderr,"usage %s hostname port\n", argv[0]);
-        exit(0);
-    }
+
     portno = PORT;//atoi(argv[2]);
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
@@ -143,12 +145,13 @@ void * recvThread(void * param){
                     write_card(serMen->x, serMen->y, serMen->Card, 255, 255, 255);//TODO change colour of text?
                     printServerMessage(serMen);
                 break;
-            case 1:    printf("Recieved card already flipped\n");//TODO card already flipped you moron
+            case 1:    printf("Recieved card already flipped\n");// card already flipped
+                break;
             case 2:
-                printf("Recieved game not started\n");//TODO game not started you moron
+                printf("Recieved game not started\n");// game not started
                 break;
             case 3:
-                printf("Recieved game START\n");//TODO game Start, maybe put all cards white or something idk
+                printf("Recieved game START\n");// game Start
                 paintAllCards(255,255,255,parameters->size);
                 break;
             case 4://TODO game ended
@@ -158,7 +161,7 @@ void * recvThread(void * param){
                 break;
             case 5:
                 paintAllCards(180,180,180,parameters->size);
-                printf("Recieved game PAUSE\n");    //TODO game paused
+                printf("Recieved game PAUSE\n");    // game paused
                 break;
         }
         sem_post(parameters->sem);
