@@ -14,7 +14,7 @@ int linear_conv(boardLibrary b,int i, int j){
 char * get_board_place_str(boardLibrary b,int i, int j){
   return b->board[linear_conv(b,i, j)].v;
 }
-void setBoardState(boardLibrary b,int i, int j, int state,int player){
+void setBoardPlaceState(boardLibrary b, int i, int j, int state, int player){
     if (state==0){
         b->board[linear_conv(b,i,j)].player=-1;
         b->board[linear_conv(b,i,j)].state=0;
@@ -24,12 +24,35 @@ void setBoardState(boardLibrary b,int i, int j, int state,int player){
         b->board[linear_conv(b,i,j)].player=player;
     }
 }
-int getBoardState(boardLibrary b,int i, int j){
+int getBoardPlaceState(boardLibrary b, int i, int j){
     return b->board[linear_conv(b,i,j)].state;
 }
 
-int getBoardPlayer(boardLibrary b,int i,int j){
+int getBoardPlacePlayer(boardLibrary b, int i, int j){
     return b->board[linear_conv(b,i,j)].player;
+}
+
+int * getBoardState(boardLibrary b, int * choices){
+    *choices=0;
+    int * toReturn;
+    int localReturn[b->dim_board*b->dim_board*2];
+    for(int j=0;j<b->dim_board;j++){
+        for(int i=0;i<b->dim_board;i++){
+            if(getBoardPlaceState(b, i, j)!=0){
+                localReturn[*choices]=i;
+                localReturn[*choices+1]=j;
+                *choices+=2;
+            }
+        }
+    }
+    if(*choices!=0){
+        toReturn=malloc(sizeof(int)*(*choices));
+        for(int i=0;i<*choices;i++)
+            toReturn[i]=localReturn[i];
+        *choices/=2;
+        return toReturn;
+    }
+    return NULL;
 }
 
 int * removePlayer(boardLibrary b,int player, int * choices){
@@ -38,8 +61,8 @@ int * removePlayer(boardLibrary b,int player, int * choices){
     int localReturn[b->dim_board*b->dim_board*2];
     for(int j=0;j<b->dim_board;j++){
         for(int i=0;i<b->dim_board;i++){
-            if(getBoardState(b,i,j)!=0 && getBoardPlayer(b,i,j)==player){//TODO check if we remove pairs or only single cards
-                setBoardState(b,i,j,0,0);
+            if(getBoardPlaceState(b, i, j)!=0 && getBoardPlacePlayer(b, i, j)==player){
+                setBoardPlaceState(b, i, j, 0, 0);
                 localReturn[*choices]=i;
                 localReturn[*choices+1]=j;
                 *choices+=2;
@@ -66,8 +89,8 @@ int * removePlayer(boardLibrary b,int player, int * choices){
 int * removeChoice(boardLibrary b,int player){
     for(int j=0;j<b->dim_board;j++)
         for(int i=0;i<b->dim_board;i++)
-            if(getBoardState(b,i,j)==1 && getBoardPlayer(b,i,j)==player){
-                setBoardState(b,i,j,0,0);
+            if(getBoardPlaceState(b, i, j)==1 && getBoardPlacePlayer(b, i, j)==player){
+                setBoardPlaceState(b, i, j, 0, 0);
                 int * toReturn=malloc(sizeof(int)*2);
                 toReturn[0]=i;
                 toReturn[1]=j;
@@ -78,17 +101,17 @@ int * removeChoice(boardLibrary b,int player){
     return NULL;
 }
 void unlockSquare(boardLibrary b,int i1,int j1,int i2,int j2){
-    int bs1= getBoardState(b,i1,j1);
-    int bs2= getBoardState(b,i2,j2);
-    int bp1=getBoardPlayer(b,i1,j1);
-    int bp2=getBoardPlayer(b,i2,j2);
-    if(getBoardPlayer(b,i1,j1)==getBoardPlayer(b,i2,j2) &&
-        getBoardState(b,i1,j1)==getBoardState(b,i2,j2) && getBoardState(b,i1,j1)==3){
-        b->play1[getBoardPlayer(b,i1,j1)][0]=-1;
-        b->play1[getBoardPlayer(b,i1,j1)][1]=-1;
-        b->lock[getBoardPlayer(b,i1,j1)]=0;
-        setBoardState(b,i1,j1,0,0);
-        setBoardState(b,i2,j2,0,0);
+    int bs1= getBoardPlaceState(b, i1, j1);
+    int bs2= getBoardPlaceState(b, i2, j2);
+    int bp1= getBoardPlacePlayer(b, i1, j1);
+    int bp2= getBoardPlacePlayer(b, i2, j2);
+    if(getBoardPlacePlayer(b, i1, j1)== getBoardPlacePlayer(b, i2, j2) &&
+            getBoardPlaceState(b, i1, j1)== getBoardPlaceState(b, i2, j2) && getBoardPlaceState(b, i1, j1)==3){
+        b->play1[getBoardPlacePlayer(b, i1, j1)][0]=-1;
+        b->play1[getBoardPlacePlayer(b, i1, j1)][1]=-1;
+        b->lock[getBoardPlacePlayer(b, i1, j1)]=0;
+        setBoardPlaceState(b, i1, j1, 0, 0);
+        setBoardPlaceState(b, i2, j2, 0, 0);
     }
 }
 int isLocked(boardLibrary b, int player){
@@ -104,7 +127,7 @@ int * getPlays(boardLibrary b, int player,int * n_plays){
     *n_plays=0;
     for(int j=0;j<b->dim_board;j++)
         for(int i=0;i<b->dim_board;i++)
-            if(getBoardState(b,i,j)==3 && getBoardPlayer(b,i,j)==player){
+            if(getBoardPlaceState(b, i, j)==3 && getBoardPlacePlayer(b, i, j)==player){
                 int * toReturn=malloc(sizeof(int)*2);
                 to_return[*n_plays]=i;
                 to_return[*n_plays+1]=j;
@@ -144,7 +167,7 @@ boardLibrary init_board(int dim){
       str_place[0] = c1;
       str_place[1] = c2;
       str_place[2] = '\0';
-      setBoardState(b,i,j,0,0);
+        setBoardPlaceState(b, i, j, 0, 0);
 
       do{
         i = random()% b->dim_board;
@@ -155,7 +178,7 @@ boardLibrary init_board(int dim){
       str_place[0] = c1;
       str_place[1] = c2;
       str_place[2] = '\0';
-      setBoardState(b,i,j,0,0);
+        setBoardPlaceState(b, i, j, 0, 0);
       count += 2;
       if (count == b->dim_board*b->dim_board)
         return b;
@@ -185,11 +208,11 @@ void print_Board(boardLibrary b){
     for(int j =0;j<b->dim_board;j++){
         printf("|");
         for(int i=0;i<b->dim_board;i++){ //I e J transpostos para ser igual ao hud
-            if(getBoardState(b,i,j)==0)
+            if(getBoardPlaceState(b, i, j)==0)
                 printf("--|");
-            if(getBoardState(b,i,j)==1)
+            if(getBoardPlaceState(b, i, j)==1)
                 printf("%c%c|",b->board[linear_conv(b,i,j)].v[0],b->board[linear_conv(b,i,j)].v[1]);
-            if(getBoardState(b,i,j)==2)
+            if(getBoardPlaceState(b, i, j)==2)
                 printf("%c%c|",toupper(b->board[linear_conv(b,i,j)].v[0]),toupper(b->board[linear_conv(b,i,j)].v[1]));
         }
         printf("\n");
@@ -200,55 +223,57 @@ play_response board_play(boardLibrary b,int x, int y,int playernumber){
   play_response resp=malloc(sizeof(struct pr));
   resp->code =10;
 
-  if(strcmp(get_board_place_str(b,x, y), "")==0 || getBoardState(b,x,y)!=0
-            || b->lock[playernumber]==1
+  if(strcmp(get_board_place_str(b,x, y), "")==0 || getBoardPlaceState(b, x, y)!=0
             ){
-    printf("FILLED by someone else or your locked\n");
+    printf("FILLED by someone else\n");
     resp->code =0;
   }
-  else{
-    if(b->play1[playernumber][0]== -1){
-        printf("FIRST Play");
-        resp->code =1;
-        b->play1[playernumber][0]=x;
-        b->play1[playernumber][1]=y;
-        resp->play1[0]= b->play1[playernumber][0];
-        resp->play1[1]= b->play1[playernumber][1];
-        strcpy(resp->str_play1, get_board_place_str(b,x, y));
-        setBoardState(b,x,y,1,playernumber);
-    }
-
-    else{
-          char * first_str = get_board_place_str(b,b->play1[playernumber][0], b->play1[playernumber][1]);
-          char * secnd_str = get_board_place_str(b,x, y);
-
-          resp->play1[0]= b->play1[playernumber][0];
-          resp->play1[1]= b->play1[playernumber][1];
-          strcpy(resp->str_play1, first_str);
-          resp->play2[0]= x;
-          resp->play2[1]= y;
-          strcpy(resp->str_play2, secnd_str);
-
-          if (strcmp(first_str, secnd_str) == 0){//CORRECT
-            printf("CORRECT!!!\n");
-            setBoardState(b,resp->play1[0],resp->play1[1],2,playernumber);
-            setBoardState(b,x,y,2,playernumber);
-              b->n_corrects +=2;
-            if (b->n_corrects == b->dim_board * b->dim_board)
-                resp->code = 3;
-            else
-              resp->code = 2;
-          }
-          else{                             //Incorrect
-            printf("INCORRECT");
-            setBoardState(b,resp->play1[0],resp->play1[1],3,playernumber);
-            setBoardState(b,x,y,3,playernumber);
-            b->lock[playernumber]=1;
-            resp->code = -2;
-          }
-        b->play1[playernumber][0]= -1;
+  else {
+      if (b->lock[playernumber] == 1) {
+          printf("Locked,sorry");
+          resp->code = -3;
       }
-    }
+      else {
+          if (b->play1[playernumber][0] == -1) {
+              printf("FIRST Play");
+              resp->code = 1;
+              b->play1[playernumber][0] = x;
+              b->play1[playernumber][1] = y;
+              resp->play1[0] = b->play1[playernumber][0];
+              resp->play1[1] = b->play1[playernumber][1];
+              strcpy(resp->str_play1, get_board_place_str(b, x, y));
+              setBoardPlaceState(b, x, y, 1, playernumber);
+          } else {
+              char *first_str = get_board_place_str(b, b->play1[playernumber][0], b->play1[playernumber][1]);
+              char *secnd_str = get_board_place_str(b, x, y);
+
+              resp->play1[0] = b->play1[playernumber][0];
+              resp->play1[1] = b->play1[playernumber][1];
+              strcpy(resp->str_play1, first_str);
+              resp->play2[0] = x;
+              resp->play2[1] = y;
+              strcpy(resp->str_play2, secnd_str);
+
+              if (strcmp(first_str, secnd_str) == 0) {//CORRECT
+                  printf("CORRECT!!!\n");
+                  setBoardPlaceState(b, resp->play1[0], resp->play1[1], 2, playernumber);
+                  setBoardPlaceState(b, x, y, 2, playernumber);
+                  b->n_corrects += 2;
+                  if (b->n_corrects == b->dim_board * b->dim_board)
+                      resp->code = 3;
+                  else
+                      resp->code = 2;
+              } else {                             //Incorrect
+                  printf("INCORRECT");
+                  setBoardPlaceState(b, resp->play1[0], resp->play1[1], 3, playernumber);
+                  setBoardPlaceState(b, x, y, 3, playernumber);
+                  b->lock[playernumber] = 1;
+                  resp->code = -2;
+              }
+              b->play1[playernumber][0] = -1;
+          }
+      }
+  }
   return resp;
 }
 

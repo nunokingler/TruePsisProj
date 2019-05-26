@@ -15,12 +15,15 @@ typedef struct RGBCOLOR {
 } * colour;
 
 typedef struct Server_Message{
-    int code; // 0 - New card flipped
-            //  1- card already flipped
-            //  2- Game not started yet
+    int code;
+            //  0 - New card flipped
+            //  1 - card already flipped
+            //  2 - Game not started yet
             //  3 - game Start
             //  4 - game end
-            // 5 - game stop
+            //  5 - game pause
+            //  6 - u locked
+            //  7 - when giving boardSize (on newValue variable)
     char Card[3];
     int newValue;
     int x,y;//position
