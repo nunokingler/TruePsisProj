@@ -91,7 +91,7 @@ int main(int argc, char *argv[]){
     do{
         pthreaderr=pthread_create( &recvThreadID , NULL ,  recvThread , (void*) threadParam);
         if(pthreaderr<0)
-            perror("could not create thread");
+            error("could not create thread");
     }while (pthreaderr<0);
 
         clientMessage cliMen=malloc(sizeof(struct Client_Message));
