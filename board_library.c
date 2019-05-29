@@ -210,7 +210,7 @@ void print_Board(boardLibrary b){
         for(int i=0;i<b->dim_board;i++){ //I e J transpostos para ser igual ao hud
             if(getBoardPlaceState(b, i, j)==0)
                 printf("--|");
-            if(getBoardPlaceState(b, i, j)==1)
+            if(getBoardPlaceState(b, i, j)==1 || getBoardPlaceState(b, i, j)==3)
                 printf("%c%c|",b->board[linear_conv(b,i,j)].v[0],b->board[linear_conv(b,i,j)].v[1]);
             if(getBoardPlaceState(b, i, j)==2)
                 printf("%c%c|",toupper(b->board[linear_conv(b,i,j)].v[0]),toupper(b->board[linear_conv(b,i,j)].v[1]));

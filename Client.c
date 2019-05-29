@@ -14,6 +14,7 @@
 #include "gameConnection.h"
 
 void * recvThread(void * param);
+
 void error(char *msg)
 {
     perror(msg);
@@ -50,7 +51,7 @@ int  sendFirstMessage(int sock,char * string){
 }
 int main(int argc, char *argv[]){
     if (argc < 3) {//2
-        fprintf(stderr,"usage %s hostname port\n", argv[0]);
+        fprintf(stderr,"usage %s hostname \n", argv[0]);
         exit(0);
     }
     if(strlen(argv[2])> MAX_CHAR)

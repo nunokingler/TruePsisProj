@@ -53,6 +53,10 @@ void * clientPickTimer(void *param);
 void * gameStartTimer(void * board);
 void killClient(gameState b, client cli);
 
+void error(char * mess){
+    perror(mess);
+    exit(-1);
+}
 
 int * fd_interruprt;
 void intHandler(int Sigint) {
@@ -291,7 +295,7 @@ int main(int argc, char** argv) {
     server_addr.sin_addr.s_addr = INADDR_ANY;
 	int err = bind(sock_fd, (struct sockaddr*) &server_addr, sizeof(server_addr));//bind
 	if (err == -1) {
-		perror("bind");
+		error("bind");
 		exit(-1);
 	}
 
@@ -318,7 +322,7 @@ int main(int argc, char** argv) {
                 do{
                     pthreaderr=pthread_create( &threads[i] , NULL ,  connection_handler , (void*) threadInit);
                     if(pthreaderr<0)
-                        perror("could not create thread");
+                        printf("could not create thread");
                 }while (pthreaderr<0);
                 b->playerNumber++;
                 if(b->playerNumber==2 && b->start==0) {
