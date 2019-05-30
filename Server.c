@@ -86,9 +86,20 @@ int init_boardState(gameState * d ,int dim){
     (*d)->board= init_board(dim);
     (*d)->start=0;
     if (sem_init(&((*d)->sem_server), 0, 1) == -1 || sem_init(&((*d)->sem_board), 0, 1) == -1){
-        perror("sem_init error");
+        error("sem_init error");
         exit(-1);
     }
+}
+void sendSquareFilled(gameState b,client cli, int x, int y){
+    serverMessage message= malloc(sizeof(struct Server_Message));
+    message->code=1;
+    message->x=x;
+    message->y=y;
+    colourCopy(&message->colour,b->colourPallete[getBoardPlacePlayer(b->board,x,y)]);
+    strcpy(message->Card,get_board_place_str(b->board,x,y));
+    message->newValue = getBoardPlaceState(b->board,x,y);
+    write(cli->sock,message,sizeof(struct Server_Message));
+    free(message);
 }
 void sendErrorCode(client cli,int code){
     serverMessage message= malloc(sizeof(struct Server_Message));
@@ -138,7 +149,7 @@ void setNewGameStart(gameState b){
     do{
         pthreaderr=pthread_create( &thred , NULL ,  gameStartTimer , (void*) b);
         if(pthreaderr<0)
-            perror("could not create thread");
+            error("could not create thread");
     }while (pthreaderr<0);
 
 }
@@ -192,6 +203,7 @@ void givePlayerBoardstate(gameState b, client cli) {
     sem_post(&b->sem_board);
     free(men);
 }
+
 void sendOneSquareTurn(gameState b, int x, int y, colour playerColour){
     if(b==NULL || playerColour==NULL)
         return;
@@ -265,13 +277,14 @@ client initClient(int sock,int number, colour col){
 }
 
 int main(int argc, char** argv) {
+
     if(argc<2){
-        printf("Usage %s BoardSize",argv[0]);
-        perror("");
+        printf("Usage %s BoardSize\n",argv[0]);
+        error("");
     }
     int size=atoi(argv[1]);
-    if(size<1 || size%2!=1)
-        perror("Boardsize must be an EVEN number GREATER than 0");
+    if(size<1 || size%2!=0)
+        error("Boardsize must be an EVEN number GREATER than 0\n");
 
 	struct sockaddr_in server_addr;
     gameState b;
@@ -287,8 +300,7 @@ int main(int argc, char** argv) {
 	int sock_fd = socket(AF_INET, SOCK_STREAM, 0);//creation
 
 	if (sock_fd == -1) {
-		perror("socket: ");
-		exit(-1);
+		error("socket: ");
 	}
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
@@ -383,17 +395,20 @@ void *connection_handler(void *socket_desc){
                                 switch (pr->code) {
                                     case 0://filled
                                         if (cli->state ==0) {
-                                            sendErrorCode(cli, 1);
+                                            sendSquareFilled(b,cli,climen->x,climen->y);
                                         } else {
-                                            cli->state = 0;
-                                            sem_wait(&b->sem_board);
-                                            int *pointer = removeChoice(b->board, cli->cliNmbr);
-                                            if (pointer != NULL) {
-                                                sendOneSquareTurn(b, pointer[0], pointer[1], cli->cliColour);
-                                                free(pointer);
-                                                print_Board(b->board);
+                                            if(cli->state!=2){
+                                                cli->timeout++;
+                                                cli->state = 0;
+                                                sem_wait(&b->sem_board);
+                                                int *pointer = removeChoice(b->board, cli->cliNmbr);
+                                                if (pointer != NULL) {
+                                                    sendOneSquareTurn(b, pointer[0], pointer[1], cli->cliColour);
+                                                    free(pointer);
+                                                    print_Board(b->board);
+                                                }
+                                                sem_post(&b->sem_board);
                                             }
-                                            sem_post(&b->sem_board);
                                         }
                                         break;
                                     case 1://first play
@@ -464,7 +479,7 @@ void *connection_handler(void *socket_desc){
         if(read_size==0)
             printf("Client %s disconnected because of timeout",cli->cliName);
         if(read_size==-1)
-            perror("recv failed");
+            error("recv failed");
         if(read_size>0)
             printf("The bugger is sending unknown information");
         killClient(b,cli);
@@ -474,9 +489,9 @@ void *connection_handler(void *socket_desc){
 void killClient(gameState b, client cli){
     sem_wait(&b->sem_board);   //Server sem wait
 
-    close(cli->sock);
-
     sem_wait(&b->sem_server);
+    close(cli->sock);
+//TODO server crash on 2 bot exit
 
     b->clients[cli->cliNmbr]=NULL;
     b->playerNumber--;

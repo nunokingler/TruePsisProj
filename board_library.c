@@ -225,7 +225,7 @@ play_response board_play(boardLibrary b,int x, int y,int playernumber){
 
   if(strcmp(get_board_place_str(b,x, y), "")==0 || getBoardPlaceState(b, x, y)!=0
             ){
-    printf("FILLED by someone else\n");
+    printf("FILLED by someone else %d %d\n",x,y);
     resp->code =0;
   }
   else {
